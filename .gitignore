@@ -1,0 +1,15 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+build/
+dist/
+
+# local data
+.cache/
+output/
+config.yaml
+cardmarket_pages/
+*.local.*

@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "mtg-wizard"
+version = "0.1.0"
+description = "Find the cheapest way to buy a Magic: The Gathering decklist across Cardmarket, TCGplayer, Card Kingdom and Paris shops, shipping included."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+    "requests>=2.31",
+    "beautifulsoup4>=4.12",
+    "pulp>=2.8,<3",  # PuLP 2.x bundles the CBC solver; 4.x changed the API
+    "pyyaml>=6.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+mtg-wizard = "mtg_wizard.cli:main"
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

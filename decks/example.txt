@@ -1,0 +1,12 @@
+// Example decklist - French or English names, MTGA/Moxfield format accepted
+Deck
+1 Sol Ring
+1 Anneau de Valkas
+1 Assaut implacable
+1 Cachet d'Izzet
+1 Cachet de Dimir
+1 Chutes de soufre
+1 Arcane Signet
+1 Lightning Greaves
+1 Command Tower
+1 Swords to Plowshares (C21) 125

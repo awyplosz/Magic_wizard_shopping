@@ -20,7 +20,7 @@ class Condition(IntEnum):
     MT = 7  # mint
 
     @classmethod
-    def parse(cls, value: str | None, default: "Condition | None" = None) -> "Condition | None":
+    def parse(cls, value: str | None, default: Condition | None = None) -> Condition | None:
         """Best-effort mapping of the condition labels used by the different shops."""
         if value is None:
             return default

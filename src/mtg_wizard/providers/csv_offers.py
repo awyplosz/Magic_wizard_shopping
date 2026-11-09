@@ -1,6 +1,8 @@
-"""Manual offers from CSV files - for any shop without a scraper, or prices you noted in store. Columns (header row required, ';' or ',' separated):
+"""Manual offers from CSV files - for any shop without a scraper, or prices you noted in store.
 
-    shop,card,price_eur,quantity[,language,condition,foil,set,shipping_eur,pickup]
+Columns (header row required, ';' or ',' separated):
+
+    shop,card,price_eur,quantity[,language,condition,foil,set,shipping_eur]
 
 `card` may be the English or French name. `shipping_eur` is a flat parcel cost for that shop
 (default 0, i.e. pick-up in Paris).
@@ -51,11 +53,9 @@ class CsvProvider(Provider):
                 self.rows.setdefault(card.name, []).append({**row, "shop": shop})
 
     def fetch_card(self, card: ResolvedCard) -> list[Offer]:
-        out = []
-        for r in self.rows.get(card.name, []):
-            out.append(Offer(card=card.name, provider=self.name, seller_id=r["shop"], seller_name=r["shop"],
-                             seller_country="FR", price_eur=float(r.get("price_eur", "0").replace(",", ".")),
-                             quantity=int(r.get("quantity") or 1), language=normalize_lang(r.get("language")),
-                             condition=Condition.parse(r.get("condition")), foil=_truthy(r.get("foil")),
-                             set_code=(r.get("set") or "").lower() or None))
-        return out
+        return [Offer(card=card.name, provider=self.name, seller_id=r["shop"], seller_name=r["shop"],
+                      seller_country="FR", price_eur=float(r.get("price_eur", "0").replace(",", ".")),
+                      quantity=int(r.get("quantity") or 1), language=normalize_lang(r.get("language")),
+                      condition=Condition.parse(r.get("condition")), foil=_truthy(r.get("foil")),
+                      set_code=(r.get("set") or "").lower() or None)
+                for r in self.rows.get(card.name, [])]

@@ -2,7 +2,7 @@ import html
 import json
 
 from mtg_wizard.models import CardRequest, Condition, ResolvedCard
-from mtg_wizard.providers.cardmarket import oauth_header, parse_product_page
+from mtg_wizard.providers.cardmarket import parse_product_page
 from mtg_wizard.providers.parkage import parse_items
 from mtg_wizard.providers.playin import parse_card_products
 from mtg_wizard.providers.troll2jeux import parse_product, parse_search, title_matches
@@ -66,9 +66,3 @@ def test_cardmarket_saved_page():
     assert arts == [{"seller": "bob", "country": "DE", "condition": Condition.NM, "language": "en",
                      "foil": False, "price": 1.25, "quantity": 3}]
 
-
-def test_oauth_header_shape():
-    h = oauth_header("GET", "https://api.cardmarket.com/ws/v2.0/output.json/articles/1", {"start": 0},
-                     "app", "appsecret", "tok", "toksecret", nonce="n", timestamp="1")
-    assert h.startswith('OAuth realm="https://api.cardmarket.com/ws/v2.0/output.json/articles/1"')
-    assert 'oauth_signature="' in h and 'oauth_consumer_key="app"' in h

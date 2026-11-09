@@ -16,7 +16,7 @@ solves the real trade-off exactly, with a mixed-integer linear program (MILP).
 | **Card Kingdom** | public daily price list (real stock per printing & condition) | international parcel + 20 % import VAT + carrier fee |
 | **Cardmarket** | pages you saved from your browser, or public price guide *(estimate)*; Wants-list export for the Shopping Wizard | per seller country, by number of cards, tracked above 25 € |
 | **TCGplayer** | TCGplayer market price via Scryfall *(estimate)*; Mass Entry export | international parcel + import VAT |
-| **Majestik** and any other shop | your own CSV file (Majestik sells no singles online) | your value (0 = pick-up) |
+| **Any other shop** | your own CSV file | your value (0 = pick-up) |
 
 A shop that doesn't have a card, or a site that is down, never blocks the run. The card is
 bought elsewhere, or listed as *not found*.
@@ -68,8 +68,7 @@ Output (in `output/`):
 
 ## Recommended workflow (Cardmarket and TCGplayer)
 
-Cardmarket and TCGplayer block automated access, and Cardmarket currently accepts no new API
-applications. Real seller offers from those two sites therefore have to come through **your own
+Cardmarket and TCGplayer block automated access, and neither offers an API you can sign up for. Real seller offers from those two sites therefore have to come through **your own
 browser**. The tool keeps that manual part as small as possible:
 
 1. Run `mtg-wizard deck.txt`. It finds what the Paris shops can supply cheaply and which cards
@@ -94,15 +93,12 @@ estimates, the cost of a trip to a Paris shop (`visit_cost_eur`, 0 by default), 
 ### Cardmarket: getting real sellers
 
 cardmarket.com blocks automated access with a bot check, and this tool does not try to get
-around it. You have three options, which can be combined:
+around it. Two sources are used, and they can be combined:
 
 1. **Saved pages** (see the workflow above). Open a card's page on Cardmarket in your browser
    (with your filters set), press `Ctrl+S` and save it as *Web page, HTML only* into
    `cardmarket_pages/`. The offer table is parsed on the next run.
-2. **Official API**. Cardmarket currently accepts no new API applications. The support is
-   ready in case that changes: set the environment variables `MKM_APP_TOKEN`,
-   `MKM_APP_SECRET`, `MKM_ACCESS_TOKEN` and `MKM_ACCESS_TOKEN_SECRET`.
-3. **Price guide** (default, automatic). This is Cardmarket's public daily price guide. It is
+2. **Price guide** (default, automatic). This is Cardmarket's public daily price guide. It is
    used only for cards with no real Cardmarket listing, and it is shown as an *estimate*, priced
    as one extra small parcel.
 
@@ -119,12 +115,10 @@ providers:
     card_ids: {"Sol Ring": 9710}
 ```
 
-### Shops without a scraper (Majestik, ...)
+### Shops without a scraper
 
-Majestik's web shop (majestikgames.com) sells Magic accessories and sealed products online but
-no single cards, so there is nothing to scrape: its singles are sold in store only. Put prices
-you see there into a CSV (see `offers/example_manual.csv`) and add it under
-`providers.csv.files`.
+Put prices you see in any other shop into a CSV (see `offers/example_manual.csv`) and add it
+under `providers.csv.files`.
 
 ## How the optimization works
 

@@ -32,14 +32,14 @@ providers:
     enabled: true
     visit_cost_eur: 0
     default_language: fr
-  csv:                         # manual offers, e.g. from Majestik or prices seen in store
+  csv:                         # manual offers, e.g. prices seen in a shop without a website
     enabled: true
-    files: []                  # e.g. [offers/majestik.csv]
+    files: []                  # e.g. [offers/example_manual.csv]
 
   # ---- Online
   cardmarket:
     enabled: true
-    modes: [priceguide, api, saved_pages]
+    modes: [priceguide, saved_pages]
     priceguide_field: trend    # low | trend | avg | avg7 | avg30
     saved_pages_dir: cardmarket_pages
     # Shipping estimates from each seller country to France. tiers: [max cards, EUR]

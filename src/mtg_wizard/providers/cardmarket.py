@@ -1,45 +1,32 @@
 """Cardmarket (Europe).
 
-cardmarket.com protects its pages with a bot check, so this tool does NOT scrape the live
-site. Three legitimate data sources are supported instead (config `providers.cardmarket.modes`):
+cardmarket.com blocks automated access and its API accepts no new applications, so this tool
+does NOT scrape the live site. Two data sources are used (config `providers.cardmarket.modes`):
 
-* ``api``         - the official Cardmarket API 2.0 (real articles: seller, country, price,
-                    condition, language, quantity). Needs your own API tokens in env vars
-                    MKM_APP_TOKEN, MKM_APP_SECRET, MKM_ACCESS_TOKEN, MKM_ACCESS_TOKEN_SECRET.
 * ``saved_pages`` - product pages you saved yourself from your browser (Ctrl+S, "web page,
-                    HTML only") into `cardmarket_pages/`. Their offer tables are parsed.
+                    HTML only") into `cardmarket_pages/`. Their offer tables are parsed
+                    (real sellers, countries, conditions, languages, prices, stock).
 * ``priceguide``  - the public daily price guide published by Cardmarket
                     (downloads.s3.cardmarket.com). Gives a price ESTIMATE per printing
-                    (trend/low...), no seller detail. Used only for cards that have no real
-                    Cardmarket offer from the two modes above.
+                    (trend/low...), no seller detail. Used only for cards that have no saved page.
 """
 
 from __future__ import annotations
 
-import base64
-import hashlib
-import hmac
 import json
 import logging
-import os
 import re
-import secrets
-import time
 from pathlib import Path
-from urllib.parse import quote
 
 from bs4 import BeautifulSoup
 
-from ..models import Condition, Offer, ResolvedCard, name_key, normalize_lang
+from ..models import Condition, Offer, ResolvedCard, name_key, normalize_lang, strip_accents
 from ..shipping import ShippingRule
 from .base import Provider, ProviderUnavailable, Seller
 
 log = logging.getLogger(__name__)
 
 PRICE_GUIDE_URL = "https://downloads.s3.cardmarket.com/productCatalog/priceGuide/price_guide_1.json"
-API_BASE = "https://api.cardmarket.com/ws/v2.0/output.json"
-MKM_LANGS = {1: "en", 2: "fr", 3: "de", 4: "es", 5: "it", 6: "zhs", 7: "ja", 8: "pt", 9: "ru",
-             10: "ko", 11: "zht"}
 COUNTRY_NAMES = {
     "austria": "AT", "belgium": "BE", "bulgaria": "BG", "croatia": "HR", "cyprus": "CY",
     "czech republic": "CZ", "czechia": "CZ", "denmark": "DK", "estonia": "EE", "finland": "FI",
@@ -61,7 +48,6 @@ COUNTRY_NAMES = {
 def _country_from_label(label: str | None) -> str | None:
     if not label:
         return None
-    from ..models import strip_accents
     v = strip_accents(label).lower()
     v = re.sub(r"^.*?(location|localisation|lieu)[^:]*:\s*", "", v).strip()
     return COUNTRY_NAMES.get(v)
@@ -77,35 +63,12 @@ def _price(text: str) -> float | None:
     return float(raw)
 
 
-# ----------------------------------------------------------------------------- API
-def oauth_header(method: str, url: str, params: dict, app_token: str, app_secret: str,
-                 access_token: str, access_secret: str, nonce: str | None = None,
-                 timestamp: str | None = None) -> str:
-    """OAuth 1.0a header as required by the Cardmarket API (HMAC-SHA1, realm = URL)."""
-    oauth = {
-        "oauth_consumer_key": app_token,
-        "oauth_token": access_token,
-        "oauth_nonce": nonce or secrets.token_hex(12),
-        "oauth_timestamp": timestamp or str(int(time.time())),
-        "oauth_signature_method": "HMAC-SHA1",
-        "oauth_version": "1.0",
-    }
-    enc = lambda s: quote(str(s), safe="~")  # noqa: E731
-    all_params = {**{k: str(v) for k, v in params.items()}, **oauth}
-    param_str = "&".join(f"{enc(k)}={enc(v)}" for k, v in sorted(all_params.items()))
-    base = "&".join([method.upper(), enc(url), enc(param_str)])
-    key = f"{enc(app_secret)}&{enc(access_secret)}"
-    sig = base64.b64encode(hmac.new(key.encode(), base.encode(), hashlib.sha1).digest()).decode()
-    oauth["oauth_signature"] = sig
-    return f'OAuth realm="{url}", ' + ", ".join(f'{k}="{v}"' for k, v in oauth.items())
-
-
-# ---------------------------------------------------------------- saved pages parser
 def parse_product_page(html: str) -> tuple[str, list[dict]]:
     """Parse a saved cardmarket.com product page -> (product title, list of article dicts)."""
     soup = BeautifulSoup(html, "html.parser")
     h1 = soup.find("h1")
     title = " ".join(h1.stripped_strings) if h1 else ""
+    attrs = ("aria-label", "data-bs-original-title", "data-original-title", "title")
     articles = []
     for row in soup.select("div.article-row"):
         seller_el = row.select_one(".seller-name a") or row.select_one("a[href*='/Users/']")
@@ -113,16 +76,14 @@ def parse_product_page(html: str) -> tuple[str, list[dict]]:
             continue
         seller = seller_el.get_text(strip=True)
         country = None
-        for el in row.select(".seller-name [aria-label], .seller-name [data-bs-original-title], "
-                             ".seller-name [data-original-title], .seller-name [title]"):
-            for attr in ("aria-label", "data-bs-original-title", "data-original-title", "title"):
+        for el in row.select(", ".join(f".seller-name [{a}]" for a in attrs)):
+            for attr in attrs:
                 country = country or _country_from_label(el.get(attr))
         cond_el = row.select_one(".article-condition")
         condition = Condition.parse(cond_el.get_text(strip=True) if cond_el else None)
         language, foil = None, False
-        for el in row.select(".product-attributes [aria-label], .product-attributes [data-bs-original-title], "
-                             ".product-attributes [data-original-title], .product-attributes [title]"):
-            for attr in ("aria-label", "data-bs-original-title", "data-original-title", "title"):
+        for el in row.select(", ".join(f".product-attributes [{a}]" for a in attrs)):
+            for attr in attrs:
                 val = el.get(attr)
                 if not val:
                     continue
@@ -149,18 +110,10 @@ class CardmarketProvider(Provider):
     label = "Cardmarket"
 
     def prepare(self, cards):
-        modes = self.cfg.get("modes", ["priceguide"])
+        modes = self.cfg.get("modes", ["priceguide", "saved_pages"])
         self.allowed_countries = set(self.cfg.get("seller_countries") or [])
         self.by_country = {k: ShippingRule.from_dict(v) for k, v in
                            (self.cfg.get("shipping_by_country") or {}).items()}
-        self.api_creds = None
-        if "api" in modes:
-            creds = [os.environ.get(k) or self.cfg.get(k.lower()) for k in
-                     ("MKM_APP_TOKEN", "MKM_APP_SECRET", "MKM_ACCESS_TOKEN", "MKM_ACCESS_TOKEN_SECRET")]
-            if all(creds):
-                self.api_creds = creds
-            else:
-                self.notes.append("Cardmarket API: no tokens configured (MKM_* env vars) - skipped.")
         self.saved: dict[str, list[dict]] = {}
         if "saved_pages" in modes:
             self._load_saved_pages(cards)
@@ -173,8 +126,8 @@ class CardmarketProvider(Provider):
                     self.guide = {g["idProduct"]: g for g in json.load(fh).get("priceGuides", [])}
             except Exception as exc:  # noqa: BLE001
                 self.notes.append(f"Cardmarket price guide unavailable: {exc}")
-        if not (self.api_creds or self.saved or self.guide):
-            raise ProviderUnavailable("no Cardmarket data source available (see README: Cardmarket)")
+        if not (self.saved or self.guide):
+            raise ProviderUnavailable("no saved Cardmarket pages and no price guide (see README: Cardmarket)")
 
     # ---------------------------------------------------------------- sellers
     def _seller(self, username: str, country: str | None) -> Seller:
@@ -213,7 +166,7 @@ class CardmarketProvider(Provider):
 
     def _offers_from_saved(self, card: ResolvedCard) -> list[Offer]:
         out = []
-        for i, a in enumerate(self.saved.get(card.name, [])):
+        for a in self.saved.get(card.name, []):
             if not self._country_ok(a["country"]):
                 continue
             self._seller(a["seller"], a["country"])
@@ -222,44 +175,6 @@ class CardmarketProvider(Provider):
                              condition=a["condition"], language=a["language"], foil=a["foil"],
                              set_name=a.get("set_name"),
                              url=f"https://www.cardmarket.com/en/Magic/Users/{a['seller']}"))
-        return out
-
-    # -------------------------------------------------------------------- API
-    def _api_articles(self, id_product: int) -> list[dict]:
-        url = f"{API_BASE}/articles/{id_product}"
-        params = {"start": 0, "maxResults": int(self.cfg.get("max_articles_per_product", 100))}
-        min_cond = self.prefs.get("min_condition")
-        if min_cond:
-            params["minCondition"] = str(min_cond).upper()
-        key = f"articles {id_product} {json.dumps(params, sort_keys=True)}"
-        hit = self.http.cache_get("cardmarket_api", key, 6)
-        if hit is not None:
-            return hit
-        header = oauth_header("GET", url, params, *self.api_creds)
-        resp = self.http.get(url, params=params, headers={"Authorization": header})
-        data = resp.json() if resp.status_code != 204 and resp.content else {}
-        arts = data.get("article", [])
-        self.http.cache_set("cardmarket_api", key, arts)
-        return arts
-
-    def _offers_from_api(self, card: ResolvedCard) -> list[Offer]:
-        out = []
-        for p in self.candidate_printings(card, self.cfg.get("max_printings", 6), "cardmarket_id"):
-            for a in self._api_articles(p.cardmarket_id):
-                seller = a.get("seller") or {}
-                user = seller.get("username") or str(seller.get("idUser"))
-                country = seller.get("country")
-                if not self._country_ok(country):
-                    continue
-                self._seller(user, country)
-                lang = MKM_LANGS.get((a.get("language") or {}).get("idLanguage"))
-                qty = int(a.get("count") or 0) * (4 if a.get("isPlayset") else 1)
-                price = float(a.get("price") or 0) / (4 if a.get("isPlayset") else 1)
-                out.append(Offer(card=card.name, provider=self.name, seller_id=user, seller_name=user,
-                                 seller_country=country, price_eur=round(price, 2), quantity=qty,
-                                 condition=Condition.parse(a.get("condition")), language=lang,
-                                 foil=bool(a.get("isFoil")), set_code=p.set_code, set_name=p.set_name,
-                                 url=f"https://www.cardmarket.com/en/Magic/Products?idProduct={p.cardmarket_id}"))
         return out
 
     # ------------------------------------------------------------- estimates
@@ -289,8 +204,6 @@ class CardmarketProvider(Provider):
 
     def fetch_card(self, card: ResolvedCard) -> list[Offer]:
         offers = self._offers_from_saved(card)
-        if self.api_creds:
-            offers += self._offers_from_api(card)
         if not offers and self.guide is not None:
             offers = self._offers_from_guide(card)
         return offers

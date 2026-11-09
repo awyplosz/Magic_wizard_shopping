@@ -1,5 +1,4 @@
-"""Manual offers from CSV files - for any shop without a scraper (e.g. Majestik), or prices you
-noted in store. Columns (header row required, ';' or ',' separated):
+"""Manual offers from CSV files - for any shop without a scraper, or prices you noted in store. Columns (header row required, ';' or ',' separated):
 
     shop,card,price_eur,quantity[,language,condition,foil,set,shipping_eur,pickup]
 

@@ -46,13 +46,10 @@ DEFAULTS: dict = {
         "cardmarket": {
             "enabled": True,
             # "priceguide": public daily price guide (estimates, no seller detail)
-            # "api":        official MKM API 2.0 with your own tokens (real sellers)
             # "saved_pages": product pages you saved yourself from your browser
-            "modes": ["priceguide", "api", "saved_pages"],
+            "modes": ["priceguide", "saved_pages"],
             "priceguide_field": "trend",     # low | trend | avg | avg7 | avg30
             "saved_pages_dir": "cardmarket_pages",
-            "max_printings": 6,
-            "max_articles_per_product": 100,
             "seller_countries": EU,
             "estimate_seller_shipping": {"tiers": [[4, 1.6], [17, 3.0], [40, 5.5], [100000, 12.0]],
                                          "tracked_above_eur": 25.0, "tracked_extra_eur": 3.0},

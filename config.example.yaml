@@ -1,0 +1,55 @@
+# Copy this file to config.yaml (git-ignored) and adjust. Anything left out uses the
+# built-in defaults from src/mtg_wizard/config.py.
+
+preferences:
+  languages: [en, fr]          # accepted card languages
+  min_condition: EX            # MT, NM, EX, GD, LP, PL, PO
+  allow_foil: true             # foils accepted when they are the cheaper option
+  respect_requested_printing: false   # true = only the (SET) written in the decklist
+  unknown_language_ok: true    # some shops (Troll2Jeux) do not state language/condition
+  unknown_condition_ok: true
+
+solver:
+  time_limit_s: 120
+  max_sellers: null            # e.g. 5 to receive at most 5 parcels / visit at most 5 shops
+  include_estimates: true      # Cardmarket/TCGplayer price-guide estimates for cards with no real listing
+  missing_card_penalty_eur: 500
+
+currency:
+  usd_to_eur: null             # null = today's ECB rate
+
+providers:
+  # ---- Paris shops: pick-up in store, no shipping. visit_cost_eur puts a price on each trip.
+  playin:
+    enabled: true
+    visit_cost_eur: 0
+    card_ids:                  # Play-in's sitemap is incomplete: pin missing cards here
+      "Sol Ring": 9710         # (number from https://www.play-in.com/fr/carte/<number>/...)
+  parkage:
+    enabled: true
+    visit_cost_eur: 0
+  troll2jeux:
+    enabled: true
+    visit_cost_eur: 0
+    default_language: fr
+  csv:                         # manual offers, e.g. from Majestik or prices seen in store
+    enabled: true
+    files: []                  # e.g. [offers/majestik.csv]
+
+  # ---- Online
+  cardmarket:
+    enabled: true
+    modes: [priceguide, api, saved_pages]
+    priceguide_field: trend    # low | trend | avg | avg7 | avg30
+    saved_pages_dir: cardmarket_pages
+    # Shipping estimates from each seller country to France. tiers: [max cards, EUR]
+    shipping_by_country:
+      FR: {tiers: [[4, 1.5], [17, 2.6], [40, 4.8], [100000, 9.0]], tracked_above_eur: 25, tracked_extra_eur: 2.5}
+      DE: {tiers: [[4, 1.9], [17, 3.2], [40, 5.5], [100000, 12.0]], tracked_above_eur: 25, tracked_extra_eur: 3.5}
+      default: {tiers: [[4, 2.2], [17, 3.6], [40, 6.5], [100000, 14.0]], tracked_above_eur: 25, tracked_extra_eur: 4.0}
+  cardkingdom:
+    enabled: true
+    shipping: {tiers: [[20, 15.0], [60, 22.0], [100000, 35.0]], import_vat_rate: 0.20, customs_fee_eur: 10.0}
+  tcgplayer:
+    enabled: true
+    shipping: {tiers: [[10, 7.0], [40, 12.0], [100000, 20.0]], import_vat_rate: 0.20, customs_fee_eur: 10.0}

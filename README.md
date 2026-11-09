@@ -1,0 +1,140 @@
+# Magic Wizard Shopping
+
+Give it a Magic: The Gathering decklist; it returns the **cheapest complete shopping list**
+across online marketplaces and Paris game shops, **shipping, import VAT and customs fees
+included**.
+
+It addresses the main weakness of Cardmarket's Shopping Wizard: you get either one seller with
+expensive cards, or 40 sellers with cheap cards and shipping that costs 10× the cards. This tool
+solves the real trade-off exactly, with a mixed-integer linear program (MILP).
+
+| Source | How prices are obtained | Shipping model |
+|---|---|---|
+| **Play-in** (Magic Bazar redirects there) | card pages (server-rendered), ids from the public sitemap | pick-up in Paris (0 €) |
+| **Parkage** | public JSON search API | pick-up in Paris (0 €) |
+| **Troll2Jeux** | search + product pages | pick-up in Paris (0 €) |
+| **Card Kingdom** | public daily price list (real stock per printing & condition) | international parcel + 20 % import VAT + carrier fee |
+| **Cardmarket** | official API *(your tokens)*, pages you saved, or public price guide *(estimate)* | per seller country, by number of cards, tracked above 25 € |
+| **TCGplayer** | TCGplayer market price via Scryfall *(estimate)* | international parcel + import VAT |
+| **Any other shop** (e.g. Majestik) | your own CSV file | your value (0 = pick-up) |
+
+A shop that doesn't have a card, or a site that is down, never blocks the run. The card is
+bought elsewhere, or listed as *not found*.
+
+## Install
+
+Requires Python ≥ 3.10.
+
+```bash
+git clone https://github.com/awyplosz/Magic_wizard_shopping.git
+cd Magic_wizard_shopping
+python -m venv .venv
+.venv\Scripts\activate          # Windows  (Linux/macOS: source .venv/bin/activate)
+pip install -e ".[dev]"
+```
+
+## Use
+
+```bash
+mtg-wizard decks/example.txt
+```
+
+The decklist accepts plain `4 Lightning Bolt`, `4x ...`, MTG Arena/Moxfield exports
+(`1 Sol Ring (C21) 263`, `*F*` for foil), `Deck`/`Sideboard`/`Commander` sections, and
+**French or English card names** (resolved with Scryfall).
+
+Useful options:
+
+```text
+--max-sellers 5          at most 5 parcels / shops
+--languages en,fr        accepted languages            --min-condition EX
+--no-foil                --skip-basic-lands            --main-only
+--providers playin,parkage,troll2jeux    only these sources
+--exclude tcgplayer      --no-estimates (real listings only)
+--offline                reuse cached data (.cache/)   -c my_config.yaml
+```
+
+Output (in `output/`):
+
+* the shopping list grouped by seller/shop in the console, and in `<deck>_shopping.md` with links,
+  plus a comparison with two naive strategies ("cheapest copy of each card" and "everything
+  from one seller");
+* `<deck>_shopping.csv` (opens in Excel);
+* `<deck>_offers.json`: every offer that was considered.
+
+## Configuration
+
+Copy `config.example.yaml` to `config.yaml` (git-ignored) and adjust preferences, shipping
+estimates, the cost of a trip to a Paris shop (`visit_cost_eur`, 0 by default), and so on.
+**Shipping numbers are estimates.** Check them against what the sites actually charge you.
+
+### Cardmarket: getting real sellers
+
+cardmarket.com blocks automated access with a bot check, and this tool does not try to get
+around it. You have three options, which can be combined:
+
+1. **Official API** (best). If you have Cardmarket API access, set the environment variables
+   `MKM_APP_TOKEN`, `MKM_APP_SECRET`, `MKM_ACCESS_TOKEN` and `MKM_ACCESS_TOKEN_SECRET`. The tool
+   then loads up to 100 real offers (seller, country, condition, language, stock) for the
+   cheapest printings of each card.
+2. **Saved pages**. Open a card's page on Cardmarket in your browser (with your filters set),
+   press `Ctrl+S` and save it as *Web page, HTML only* into `cardmarket_pages/`. The offer table
+   is parsed on the next run.
+3. **Price guide** (default, automatic). This is Cardmarket's public daily price guide. It is
+   used only for cards with no real Cardmarket listing, and it is shown as an *estimate*, priced
+   as one extra small parcel.
+
+### Play-in card ids
+
+Play-in's search page cannot be automated, so card ids come from Play-in's public sitemap,
+which is incomplete. Cards that are missing are listed after each run. To add one, look it up
+on play-in.com, copy the number from the URL (`/fr/carte/9710/anneau-solaire`), and add it
+to `config.yaml`:
+
+```yaml
+providers:
+  playin:
+    card_ids: {"Sol Ring": 9710}
+```
+
+### Shops without a scraper (Majestik, ...)
+
+`majestik.fr` is currently a domain for sale, so no scraper was written for it. Put prices you
+know into a CSV (see `offers/example_manual.csv`) and add it under `providers.csv.files`.
+
+## How the optimization works
+
+Variables: the copies bought from each offer `x`, a binary *seller used* flag `y`, the shipping
+tier of each parcel, a *tracked shipping* flag and a *free-shipping reached* flag. It minimizes:
+
+```
+Σ price·x  +  Σ_sellers (postage(tier, tracked, free) + import VAT·(items + postage) + customs fee
+                         + visit cost)  +  penalty · missing cards
+```
+
+subject to: every requested copy is bought or reported missing, stock limits, you can only buy
+from a seller you "open", and an optional cap on the number of sellers. Dominated offers are
+pruned first; CBC (bundled with PuLP) then solves it. A 100-card list with ~3,000 offers from
+400 sellers solves to the proven optimum in about 20 s.
+
+## Project layout
+
+```
+src/mtg_wizard/
+  cli.py          command line
+  decklist.py     decklist parser
+  scryfall.py     card names (EN/FR) -> printings, Cardmarket/TCGplayer ids
+  providers/      one module per shop (base.py = common interface)
+  shipping.py     shipping cost model
+  optimizer.py    MILP + naive baselines
+  report.py       console / Markdown / CSV output
+tests/            unit tests (pytest), no network
+```
+
+Run the tests with `pytest`.
+
+## Being a good citizen
+
+Requests are rate-limited per site and cached on disk (`.cache/`). The tool uses only public
+price files, public APIs, sitemaps and normal page loads, and it does not bypass any bot
+protection. Use it for personal shopping, and respect each site's terms of use.

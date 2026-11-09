@@ -13,7 +13,7 @@ solves the real trade-off exactly, with a mixed-integer linear program (MILP).
 | **Play-in** (Magic Bazar redirects there) | card pages (server-rendered), ids from the public sitemap | pick-up in Paris (0 €) |
 | **Parkage** | public JSON search API | pick-up in Paris (0 €) |
 | **Troll2Jeux** | search + product pages | pick-up in Paris (0 €) |
-| **Card Kingdom** | public daily price list (real stock per printing & condition) | international parcel + 20 % import VAT + carrier fee |
+| **Card Kingdom** *(off by default: shipping to the EU paused since Nov 2026)* | public daily price list (real stock per printing & condition) | international parcel + 25 % VAT + 3 € customs fee |
 | **Cardmarket** | pages you saved from your browser, or public price guide *(estimate)*; Wants-list export for the Shopping Wizard | per seller country, by number of cards, tracked above 25 € |
 | **TCGplayer** | TCGplayer market price via Scryfall *(estimate)*; Mass Entry export | international parcel + import VAT |
 | **Any other shop** | your own CSV file | your value (0 = pick-up) |
@@ -88,7 +88,22 @@ browser**. The tool keeps that manual part as small as possible:
 
 Copy `config.example.yaml` to `config.yaml` (git-ignored) and adjust preferences, shipping
 estimates, the cost of a trip to a Paris shop (`visit_cost_eur`, 0 by default), and so on.
-**Shipping numbers are estimates.** Check them against what the sites actually charge you.
+### Delivery costs to Paris
+
+The default fees are for delivery to Paris (2026 rates):
+
+| From | Cards | Untracked | Tracked (required above 25 €) | Source |
+|---|---|---:|---:|---|
+| Paris shops (Play-in, Parkage, Troll2Jeux) | any | 0 € (pick-up) | n/a | n/a |
+| Cardmarket seller in France | ≤ 4 / ≤ 40 / ≤ 100 | 1.82 / 3.40 / 5.74 € | + 0.70 € | La Poste 2026 (Lettre verte / suivie) |
+| Cardmarket seller in Germany | ≤ 4 / ≤ 17 / ≤ 40 / ≤ 200 | 1.55 / 2.10 / 3.60 / 3.80 € | + 3.90 € | Deutsche Post 09/2026 (Brief International, Einschreiben) |
+| Cardmarket seller elsewhere | ≤ 4 / ≤ 17 / ≤ 40 | 2.20 / 3.60 / 6.50 € | + 4.00 € | rough estimate |
+| TCGplayer, Card Kingdom (USA) | any | estimate | n/a | plus import VAT and 3 € customs fee |
+
+Cardmarket prices are the national postage plus Cardmarket's packaging fee (0.30 € for a
+letter, 0.50 € for a tracked letter or over 100 g). The cards per weight class come from
+Cardmarket's help: 4 cards in 20 g, 17 in 50 g, 40 in 100 g. Countries other than France and
+Germany, and the US imports, are estimates. Adjust them in `config.yaml` if you know better.
 
 ### Cardmarket: getting real sellers
 
@@ -133,8 +148,10 @@ tier of each parcel, a *tracked shipping* flag and a *free-shipping reached* fla
 subject to: every requested copy is bought or reported missing, stock limits, you can only buy
 from a seller you "open", and an optional cap on the number of sellers. CBC (bundled with PuLP)
 solves it to the proven optimum. Shipping tiers are modelled incrementally, with tight bounds
-and only the thresholds a parcel can actually cross. On a test with 100 cards and about 3,200
-offers from 400 sellers, it finds the proven optimum in about 12 s.
+and only the thresholds a parcel can actually cross. On a test with 100 cards and about 3,500
+offers from 400 Cardmarket sellers (at the Paris delivery rates) plus the three Paris shops, it
+finds the proven optimum in about 25 s: 148.49 € (121.50 € cards + 26.99 € shipping) from 19
+sellers, against 243.63 € from 77 sellers when buying the cheapest copy of each card.
 
 Before solving, only offers that *provably* cannot help are removed:
 
@@ -146,11 +163,12 @@ worth buying to reach it.
 
 ### Verification
 
-`tests/test_optimality.py` generates random problems that mix random shipping tiers,
-tracked-shipping and free-shipping thresholds, import VAT, customs fees, shop visit costs,
-limited stock, missing cards and seller caps. It enumerates **every possible cart**, prices
+`tests/test_optimality.py` generates random problems with the real Paris delivery rates above,
+card prices up to 15 € (so parcels cross the 25 € tracked threshold), limited stock, missing
+cards and seller caps. A smaller synthetic set also covers free-shipping thresholds, odd tier
+tables and shop visit costs. It enumerates **every possible cart**, prices
 each one with the same cost function the report uses, and checks that the optimizer returns
-the true cheapest cart. 190 such cases run in the test suite; a sweep of 1,000 more found no
+the true cheapest cart. 250 such cases run in the test suite; sweeps of 1,000 more found no
 difference.
 
 ## Project layout

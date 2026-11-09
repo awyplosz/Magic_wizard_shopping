@@ -14,9 +14,9 @@ solves the real trade-off exactly, with a mixed-integer linear program (MILP).
 | **Parkage** | public JSON search API | pick-up in Paris (0 €) |
 | **Troll2Jeux** | search + product pages | pick-up in Paris (0 €) |
 | **Card Kingdom** | public daily price list (real stock per printing & condition) | international parcel + 20 % import VAT + carrier fee |
-| **Cardmarket** | official API *(your tokens)*, pages you saved, or public price guide *(estimate)* | per seller country, by number of cards, tracked above 25 € |
-| **TCGplayer** | TCGplayer market price via Scryfall *(estimate)* | international parcel + import VAT |
-| **Any other shop** (e.g. Majestik) | your own CSV file | your value (0 = pick-up) |
+| **Cardmarket** | pages you saved from your browser, or public price guide *(estimate)*; Wants-list export for the Shopping Wizard | per seller country, by number of cards, tracked above 25 € |
+| **TCGplayer** | TCGplayer market price via Scryfall *(estimate)*; Mass Entry export | international parcel + import VAT |
+| **Majestik** and any other shop | your own CSV file (Majestik sells no singles online) | your value (0 = pick-up) |
 
 A shop that doesn't have a card, or a site that is down, never blocks the run. The card is
 bought elsewhere, or listed as *not found*.
@@ -26,18 +26,20 @@ bought elsewhere, or listed as *not found*.
 Requires Python ≥ 3.10.
 
 ```bash
-git clone https://github.com/awyplosz/Magic_wizard_shopping.git
-cd Magic_wizard_shopping
-python -m venv .venv
-.venv\Scripts\activate          # Windows  (Linux/macOS: source .venv/bin/activate)
+git clone https://github.com/awyplosz/Magic_wizard_shopping.git Magic_shopping_wizard
+cd Magic_shopping_wizard
+python -m venv %USERPROFILE%\magic_wizard      # environment outside OneDrive
+%USERPROFILE%\magic_wizard\Scripts\activate
 pip install -e ".[dev]"
 ```
 
 ## Use
 
 ```bash
-mtg-wizard decks/example.txt
+C:\Users\awypl\magic_wizard\Scripts\mtg-wizard decks\example.txt
 ```
+
+(or just `mtg-wizard decks\example.txt` once the environment is activated)
 
 The decklist accepts plain `4 Lightning Bolt`, `4x ...`, MTG Arena/Moxfield exports
 (`1 Sol Ring (C21) 263`, `*F*` for foil), `Deck`/`Sideboard`/`Commander` sections, and
@@ -60,7 +62,28 @@ Output (in `output/`):
   plus a comparison with two naive strategies ("cheapest copy of each card" and "everything
   from one seller");
 * `<deck>_shopping.csv` (opens in Excel);
-* `<deck>_offers.json`: every offer that was considered.
+* `<deck>_offers.json`: every offer that was considered;
+* for the cards **not** bought in a Paris shop: `<deck>_cardmarket_wants.txt`,
+  `<deck>_tcgplayer_mass_entry.txt` and `<deck>_marketplace_links.html` (see below).
+
+## Recommended workflow (Cardmarket and TCGplayer)
+
+Cardmarket and TCGplayer block automated access, and Cardmarket currently accepts no new API
+applications. Real seller offers from those two sites therefore have to come through **your own
+browser**. The tool keeps that manual part as small as possible:
+
+1. Run `mtg-wizard deck.txt`. It finds what the Paris shops can supply cheaply and which cards
+   are left for online purchase.
+2. **Cardmarket Shopping Wizard:** on Cardmarket, open *Wants* → *Ajouter une deck list*, paste
+   `output/<deck>_cardmarket_wants.txt` and run the Shopping Wizard on that smaller list. The
+   Paris shops already cover the rest, so you are no longer paying shipping on cards you could
+   pick up in store.
+3. **Or fully optimized:** open `output/<deck>_marketplace_links.html`, click each card's
+   Cardmarket link, set your filters, and save the page with `Ctrl+S` (*web page, HTML only*)
+   into `cardmarket_pages/`. Run `mtg-wizard` again: those real offers, with real sellers and
+   countries, now go into the optimization next to the Paris shops and Card Kingdom.
+4. **TCGplayer:** paste `<deck>_tcgplayer_mass_entry.txt` into TCGplayer *Mass Entry* and use
+   its *Cart Optimizer* (check that the sellers ship to France).
 
 ## Configuration
 
@@ -73,13 +96,12 @@ estimates, the cost of a trip to a Paris shop (`visit_cost_eur`, 0 by default), 
 cardmarket.com blocks automated access with a bot check, and this tool does not try to get
 around it. You have three options, which can be combined:
 
-1. **Official API** (best). If you have Cardmarket API access, set the environment variables
-   `MKM_APP_TOKEN`, `MKM_APP_SECRET`, `MKM_ACCESS_TOKEN` and `MKM_ACCESS_TOKEN_SECRET`. The tool
-   then loads up to 100 real offers (seller, country, condition, language, stock) for the
-   cheapest printings of each card.
-2. **Saved pages**. Open a card's page on Cardmarket in your browser (with your filters set),
-   press `Ctrl+S` and save it as *Web page, HTML only* into `cardmarket_pages/`. The offer table
-   is parsed on the next run.
+1. **Saved pages** (see the workflow above). Open a card's page on Cardmarket in your browser
+   (with your filters set), press `Ctrl+S` and save it as *Web page, HTML only* into
+   `cardmarket_pages/`. The offer table is parsed on the next run.
+2. **Official API**. Cardmarket currently accepts no new API applications. The support is
+   ready in case that changes: set the environment variables `MKM_APP_TOKEN`,
+   `MKM_APP_SECRET`, `MKM_ACCESS_TOKEN` and `MKM_ACCESS_TOKEN_SECRET`.
 3. **Price guide** (default, automatic). This is Cardmarket's public daily price guide. It is
    used only for cards with no real Cardmarket listing, and it is shown as an *estimate*, priced
    as one extra small parcel.
@@ -99,8 +121,10 @@ providers:
 
 ### Shops without a scraper (Majestik, ...)
 
-`majestik.fr` is currently a domain for sale, so no scraper was written for it. Put prices you
-know into a CSV (see `offers/example_manual.csv`) and add it under `providers.csv.files`.
+Majestik's web shop (majestikgames.com) sells Magic accessories and sealed products online but
+no single cards, so there is nothing to scrape: its singles are sold in store only. Put prices
+you see there into a CSV (see `offers/example_manual.csv`) and add it under
+`providers.csv.files`.
 
 ## How the optimization works
 

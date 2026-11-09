@@ -73,3 +73,16 @@ def test_offer_filters():
     assert not offer_allowed(offer("A", "s", 1, condition=Condition.GD), cfg)
     assert not offer_allowed(offer("A", "s", 1, foil=True), cfg)
     assert offer_allowed(offer("A", "s", 1), cfg)  # unknown language/condition accepted by default
+
+
+def test_marketplace_lists_skip_paris_pickups(tmp_path):
+    from mtg_wizard.report import cards_for_marketplaces, write_marketplace_lists
+    cards = [card("A"), card("B", 2), card("Z")]
+    paris = seller("paris", 0)
+    paris.pickup = True
+    sellers = {s.key: s for s in [paris, seller("web", 1)]}
+    offers = [offer("A", "paris", 1.0), offer("B", "web", 0.1)]
+    plan = optimize(cards, offers, sellers, time_limit=20)
+    assert cards_for_marketplaces(plan) == {"B": 2, "Z": 1}
+    files = write_marketplace_lists(tmp_path, "deck", plan, cards)
+    assert files[0].read_text(encoding="utf-8") == "2 B\n1 Z\n"

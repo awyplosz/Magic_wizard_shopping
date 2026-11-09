@@ -16,7 +16,7 @@ from .decklist import load_decklist
 from .http import HttpClient
 from .optimizer import best_single_seller, cheapest_per_card, optimize
 from .providers import PROVIDERS, Context, offer_allowed
-from .report import plan_to_text, write_csv, write_markdown
+from .report import plan_to_text, write_csv, write_markdown, write_marketplace_lists
 from .scryfall import ScryfallResolver
 
 log = logging.getLogger("mtg_wizard")
@@ -146,6 +146,13 @@ def main(argv: list[str] | None = None) -> int:
     offers_path.write_text(json.dumps([{**dataclasses.asdict(o), "condition": o.condition.name if o.condition else None}
                                        for o in offers], ensure_ascii=False, indent=1), encoding="utf-8")
     print(f"\nSaved: {md}\n       {csv_path}\n       {offers_path}")
+    lists = write_marketplace_lists(out, stem, plan, cards)
+    if lists:
+        print("\nCardmarket / TCGplayer (cards not bought in a Paris shop):")
+        for p in lists:
+            print(f"       {p}")
+        print("  -> paste the wants file into Cardmarket 'Ajouter une deck list' and run the Shopping Wizard,")
+        print("     or save product pages (Ctrl+S) into cardmarket_pages/ and run again. See README.")
     return 0
 
 

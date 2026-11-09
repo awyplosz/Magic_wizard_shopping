@@ -87,6 +87,60 @@ def write_markdown(path: Path, plan: Plan, baselines: list[Plan], results: list[
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
+def cards_for_marketplaces(plan: Plan) -> dict[str, int]:
+    """Copies that are NOT bought in a Paris shop (pick-up): to look for on Cardmarket/TCGplayer."""
+    need: dict[str, int] = {}
+    for p in plan.parcels:
+        if p.seller.pickup:
+            continue
+        for line in p.lines:
+            need[line.offer.card] = need.get(line.offer.card, 0) + line.quantity
+    for c, n in plan.missing.items():
+        need[c] = need.get(c, 0) + n
+    return dict(sorted(need.items()))
+
+
+def write_marketplace_lists(out: Path, stem: str, plan: Plan, cards) -> list[Path]:
+    """Files to finish the job on Cardmarket / TCGplayer with your own browser:
+
+    * <deck>_cardmarket_wants.txt    paste into Cardmarket "Ajouter une deck list" (Wants), then
+                                     run Cardmarket's Shopping Wizard on it
+    * <deck>_tcgplayer_mass_entry.txt paste into TCGplayer Mass Entry, then use its Cart Optimizer
+    * <deck>_marketplace_links.html  one click per card (Cardmarket / TCGplayer search), handy to
+                                     save Cardmarket product pages into cardmarket_pages/
+    """
+    from html import escape
+    from urllib.parse import quote_plus
+
+    need = cards_for_marketplaces(plan)
+    if not need:
+        return []
+    by_name = {c.name: c for c in cards}
+    wants = out / f"{stem}_cardmarket_wants.txt"
+    tcg = out / f"{stem}_tcgplayer_mass_entry.txt"
+    links = out / f"{stem}_marketplace_links.html"
+    text = "\n".join(f"{n} {c}" for c, n in need.items()) + "\n"
+    wants.write_text(text, encoding="utf-8")
+    tcg.write_text(text, encoding="utf-8")
+    rows = []
+    for c, n in need.items():
+        fr = by_name[c].names.get("fr") if c in by_name else None
+        cm = f"https://www.cardmarket.com/fr/Magic/Products/Search?searchString={quote_plus(c)}"
+        tp = f"https://www.tcgplayer.com/search/magic/product?q={quote_plus(c)}"
+        rows.append(f"<tr><td>{n}</td><td>{escape(c)}</td><td>{escape(fr or '')}</td>"
+                    f'<td><a href="{cm}" target="_blank">Cardmarket</a></td>'
+                    f'<td><a href="{tp}" target="_blank">TCGplayer</a></td></tr>')
+    links.write_text(
+        "<!doctype html><meta charset='utf-8'><title>Marketplace links</title>"
+        "<style>body{font-family:sans-serif;margin:2em}td,th{padding:4px 10px;border-bottom:1px solid #ddd}</style>"
+        f"<h1>{sum(need.values())} cards to buy online</h1>"
+        "<p>Cardmarket: open a card, set your filters (language, condition), then <b>Ctrl+S</b> "
+        "(web page, HTML only) into <code>cardmarket_pages/</code> and run mtg-wizard again.</p>"
+        "<table><tr><th>Qty</th><th>Card</th><th>FR</th><th></th><th></th></tr>"
+        + "".join(rows) + "</table>", encoding="utf-8")
+    return [wants, tcg, links]
+
+
 def write_csv(path: Path, plan: Plan) -> None:
     with open(path, "w", newline="", encoding="utf-8-sig") as fh:
         w = csv.writer(fh, delimiter=";")

@@ -13,6 +13,25 @@ import yaml
 EU = ["AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE", "IT",
       "LV", "LT", "LU", "MT", "NL", "PL", "PT", "RO", "SK", "SI", "ES", "SE"]
 
+# Cardmarket parcels delivered to Paris. Cardmarket's help: a 20 g letter holds 4 cards, 50 g 17,
+# 100 g 40 (larger steps extrapolated: ~100 cards per 250 g, ~200 per 500 g, ~400 per 1 kg); it
+# adds a packaging fee of 0.30 EUR (letter < 100 g) or 0.50 EUR (> 100 g or tracked), and
+# tracked shipping is mandatory above 25 EUR. tracked_extra = tracked total - untracked total.
+#
+# French seller -> Paris: La Poste 2026, Lettre verte 1.52 (20 g) / 3.10 (100 g) / 5.24 (250 g)
+# / 7.41 (500 g) / 9.29 (1 kg) / 11.14 (2 kg); Lettre suivie = Lettre verte + 0.50.
+FR_TO_PARIS = {
+    "tiers": [[4, 1.82], [40, 3.40], [100, 5.74], [200, 7.91], [400, 9.79], [100000, 11.64]],
+    "tracked_above_eur": 25.0, "tracked_extra_eur": 0.70,
+}
+# German seller -> Paris: Deutsche Post Brief International (price list of 01.09.2026),
+# Standard 1.25 (20 g) / Kompakt 1.80 (50 g) / Gross 3.30 (500 g) / Maxi 6.50 (1 kg) / 17.00 (2 kg);
+# Einschreiben International +3.70.
+DE_TO_PARIS = {
+    "tiers": [[4, 1.55], [17, 2.10], [40, 3.60], [200, 3.80], [400, 7.00], [100000, 17.50]],
+    "tracked_above_eur": 25.0, "tracked_extra_eur": 3.90,
+}
+
 DEFAULTS: dict = {
     "home_country": "FR",
     "preferences": {
@@ -32,15 +51,20 @@ DEFAULTS: dict = {
     },
     "http": {"cache_dir": ".cache", "default_delay_s": 0.6},
     "providers": {
+        # Card Kingdom paused all shipping to the EU (incl. France) in Nov 2026, so it is off by
+        # default. When it ships, it charges 25% VAT + a 3 EUR customs fee (its own support page);
+        # its postage is not published, the tiers below are an estimate.
         "cardkingdom": {
-            "enabled": True,
+            "enabled": False,
             "shipping": {"tiers": [[20, 15.0], [60, 22.0], [100000, 35.0]],
-                         "import_vat_rate": 0.20, "customs_fee_eur": 10.0},
+                         "import_vat_rate": 0.25, "customs_fee_eur": 3.0},
         },
+        # Imports from the US into France: 20% French VAT + the EU 3 EUR customs fee on parcels
+        # under 150 EUR. TCGplayer international postage is not published: estimate.
         "tcgplayer": {
             "enabled": True,
             "shipping": {"tiers": [[10, 7.0], [40, 12.0], [100000, 20.0]],
-                         "import_vat_rate": 0.20, "customs_fee_eur": 10.0},
+                         "import_vat_rate": 0.20, "customs_fee_eur": 3.0},
         },
         "cardmarket": {
             "enabled": True,
@@ -50,15 +74,14 @@ DEFAULTS: dict = {
             "priceguide_field": "trend",     # low | trend | avg | avg7 | avg30
             "saved_pages_dir": "cardmarket_pages",
             "seller_countries": EU,
-            "estimate_seller_shipping": {"tiers": [[4, 1.6], [17, 3.0], [40, 5.5], [100000, 12.0]],
-                                         "tracked_above_eur": 25.0, "tracked_extra_eur": 3.0},
-            # cost from each seller country to France (letter / small parcel)
+            # Price-guide estimates: assume one more parcel from a French seller.
+            "estimate_seller_shipping": FR_TO_PARIS,
+            # Delivery to Paris from each seller country (Cardmarket uses the national post).
             "shipping_by_country": {
-                "FR": {"tiers": [[4, 1.5], [17, 2.6], [40, 4.8], [100000, 9.0]],
-                       "tracked_above_eur": 25.0, "tracked_extra_eur": 2.5},
-                "DE": {"tiers": [[4, 1.9], [17, 3.2], [40, 5.5], [100000, 12.0]],
-                       "tracked_above_eur": 25.0, "tracked_extra_eur": 3.5},
-                "default": {"tiers": [[4, 2.2], [17, 3.6], [40, 6.5], [100000, 14.0]],
+                "FR": FR_TO_PARIS,
+                "DE": DE_TO_PARIS,
+                # Other countries: not verified, rough estimate - adjust in config.yaml.
+                "default": {"tiers": [[4, 2.2], [17, 3.6], [40, 6.5], [400, 14.0], [100000, 20.0]],
                             "tracked_above_eur": 25.0, "tracked_extra_eur": 4.0},
             },
         },

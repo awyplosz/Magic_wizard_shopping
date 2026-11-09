@@ -42,14 +42,18 @@ providers:
     modes: [priceguide, saved_pages]
     priceguide_field: trend    # low | trend | avg | avg7 | avg30
     saved_pages_dir: cardmarket_pages
-    # Shipping estimates from each seller country to France. tiers: [max cards, EUR]
+    # Delivery to Paris, tiers: [max cards, EUR] = national post 2026 + Cardmarket packaging fee
+    # (20 g letter = 4 cards, 50 g = 17, 100 g = 40). Tracked is mandatory above 25 EUR.
     shipping_by_country:
-      FR: {tiers: [[4, 1.5], [17, 2.6], [40, 4.8], [100000, 9.0]], tracked_above_eur: 25, tracked_extra_eur: 2.5}
-      DE: {tiers: [[4, 1.9], [17, 3.2], [40, 5.5], [100000, 12.0]], tracked_above_eur: 25, tracked_extra_eur: 3.5}
-      default: {tiers: [[4, 2.2], [17, 3.6], [40, 6.5], [100000, 14.0]], tracked_above_eur: 25, tracked_extra_eur: 4.0}
+      FR: {tiers: [[4, 1.82], [40, 3.40], [100, 5.74], [200, 7.91], [400, 9.79], [100000, 11.64]],
+           tracked_above_eur: 25, tracked_extra_eur: 0.70}      # La Poste 2026
+      DE: {tiers: [[4, 1.55], [17, 2.10], [40, 3.60], [200, 3.80], [400, 7.00], [100000, 17.50]],
+           tracked_above_eur: 25, tracked_extra_eur: 3.90}      # Deutsche Post 09/2026
+      default: {tiers: [[4, 2.2], [17, 3.6], [40, 6.5], [400, 14.0], [100000, 20.0]],
+                tracked_above_eur: 25, tracked_extra_eur: 4.0}  # other countries: rough estimate
   cardkingdom:
-    enabled: true
-    shipping: {tiers: [[20, 15.0], [60, 22.0], [100000, 35.0]], import_vat_rate: 0.20, customs_fee_eur: 10.0}
+    enabled: false               # shipping to the EU paused since Nov 2026
+    shipping: {tiers: [[20, 15.0], [60, 22.0], [100000, 35.0]], import_vat_rate: 0.25, customs_fee_eur: 3.0}
   tcgplayer:
     enabled: true
-    shipping: {tiers: [[10, 7.0], [40, 12.0], [100000, 20.0]], import_vat_rate: 0.20, customs_fee_eur: 10.0}
+    shipping: {tiers: [[10, 7.0], [40, 12.0], [100000, 20.0]], import_vat_rate: 0.20, customs_fee_eur: 3.0}

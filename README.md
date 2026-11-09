@@ -131,9 +131,27 @@ tier of each parcel, a *tracked shipping* flag and a *free-shipping reached* fla
 ```
 
 subject to: every requested copy is bought or reported missing, stock limits, you can only buy
-from a seller you "open", and an optional cap on the number of sellers. Dominated offers are
-pruned first; CBC (bundled with PuLP) then solves it. A 100-card list with ~3,000 offers from
-400 sellers solves to the proven optimum in about 20 s.
+from a seller you "open", and an optional cap on the number of sellers. CBC (bundled with PuLP)
+solves it to the proven optimum. Shipping tiers are modelled incrementally, with tight bounds
+and only the thresholds a parcel can actually cross. On a test with 100 cards and about 3,200
+offers from 400 sellers, it finds the proven optimum in about 12 s.
+
+Before solving, only offers that *provably* cannot help are removed:
+
+* a seller's pricier copy of a card when its cheaper copies already cover the need;
+* a copy priced above what a free pick-up shop already offers in sufficient quantity.
+
+Neither rule applies to a seller with a free-shipping threshold, where a pricier card can be
+worth buying to reach it.
+
+### Verification
+
+`tests/test_optimality.py` generates random problems that mix random shipping tiers,
+tracked-shipping and free-shipping thresholds, import VAT, customs fees, shop visit costs,
+limited stock, missing cards and seller caps. It enumerates **every possible cart**, prices
+each one with the same cost function the report uses, and checks that the optimizer returns
+the true cheapest cart. 190 such cases run in the test suite; a sweep of 1,000 more found no
+difference.
 
 ## Project layout
 

@@ -7,7 +7,7 @@ from pathlib import Path
 
 import yaml
 
-# Shipping tiers are [max_cards, cost_eur]: the first tier whose max_cards >= number of
+# Shipping tiers are [max_cards, cost_eur]: the cheapest tier whose max_cards >= number of
 # cards in the parcel applies. All shipping numbers are ESTIMATES - check them against
 # what the sites actually charge you and adjust them in config.yaml.
 EU = ["AT", "BE", "BG", "HR", "CY", "CZ", "DK", "EE", "FI", "FR", "DE", "GR", "HU", "IE", "IT",
@@ -28,7 +28,6 @@ DEFAULTS: dict = {
         "time_limit_s": 120,
         "max_sellers": None,           # cap the number of parcels / shops
         "missing_card_penalty_eur": 500.0,
-        "max_offers_per_card": 40,     # pre-filter, keeps the model small
         "include_estimates": True,     # use Cardmarket price-guide estimates as offers
     },
     "http": {"cache_dir": ".cache", "default_delay_s": 0.6},

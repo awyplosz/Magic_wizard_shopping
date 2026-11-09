@@ -123,8 +123,7 @@ def main(argv: list[str] | None = None) -> int:
 
     solver = cfg["solver"]
     plan = optimize(cards, offers, ctx.sellers, time_limit=int(solver["time_limit_s"]),
-                    max_sellers=solver.get("max_sellers"), missing_penalty=float(solver["missing_card_penalty_eur"]),
-                    max_offers_per_card=int(solver["max_offers_per_card"]))
+                    max_sellers=solver.get("max_sellers"), missing_penalty=float(solver["missing_card_penalty_eur"]))
     baselines = [cheapest_per_card(cards, offers, ctx.sellers)]
     single = best_single_seller(cards, offers, ctx.sellers)
     if single:

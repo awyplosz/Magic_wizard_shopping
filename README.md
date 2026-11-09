@@ -36,10 +36,10 @@ pip install -e ".[dev]"
 ## Use
 
 ```bash
-C:\Users\awypl\magic_wizard\Scripts\mtg-wizard decks\example.txt
+mtg-wizard decks\example.txt
 ```
 
-(or just `mtg-wizard decks\example.txt` once the environment is activated)
+(with the environment activated; otherwise call `%USERPROFILE%\magic_wizard\Scripts\mtg-wizard`)
 
 The decklist accepts plain `4 Lightning Bolt`, `4x ...`, MTG Arena/Moxfield exports
 (`1 Sol Ring (C21) 263`, `*F*` for foil), `Deck`/`Sideboard`/`Commander` sections, and
